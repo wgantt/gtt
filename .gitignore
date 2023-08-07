@@ -1,0 +1,7 @@
+# Python things
+*__pycache__
+
+# project-specific
+data/muc/processed/cached*
+model_gtt/lightning_logs*
+model_gtt/model*
