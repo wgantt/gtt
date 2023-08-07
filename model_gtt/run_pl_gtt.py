@@ -8,12 +8,12 @@ from eval import eval_tf
 
 import numpy as np
 import torch
-from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score
+from seqeval.metrics import accuracy_score
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, TensorDataset
 
 from transformer_base import BaseTransformer, add_generic_args, generic_train
-from utils_gtt import convert_examples_to_features, get_labels, read_examples_from_file, read_golds_from_test_file, not_sub_string, incident_token_to_type
+from utils_gtt import convert_examples_to_features, read_examples_from_file, read_golds_from_test_file, not_sub_string, incident_token_to_type
 
 role_list = ["incident_type", "PerpInd", "PerpOrg", "Target", "Victim", "Weapon"]
 
@@ -63,7 +63,6 @@ class NERTransformer(BaseTransformer):
                 loss = loss_fct(logits.view(-1, args.max_seq_length_src), labels.view(-1))
             outputs = (loss,) + outputs
 
-        # import ipdb; ipdb.set_trace()
         return outputs
 
     def training_step(self, batch, batch_num):
@@ -100,7 +99,6 @@ class NERTransformer(BaseTransformer):
                 )
                 logger.info("Saving features into cached file %s", cached_features_file)
                 torch.save(features, cached_features_file)
-        # import ipdb; ipdb.set_trace()
 
     def load_dataset(self, mode, batch_size):
         "Load datasets. Called after prepare data."
@@ -146,7 +144,6 @@ class NERTransformer(BaseTransformer):
                 if out_label_ids[i, j] != self.pad_token_label_id:
                     out_label_list[i].append(out_label_ids[i][j])
                     preds_list[i].append(preds[i][j])
-        # import ipdb; ipdb.set_trace()
 
         logs = {
             "val_loss": val_loss_mean,
@@ -181,12 +178,9 @@ class NERTransformer(BaseTransformer):
             attention_mask = batch[1][:, :i+1, :i+1]
             for j in range(max_seq_length_src, i+1):
                 attention_mask[:, j, max_seq_length_src:j+1] = 1
-            # if i == max_seq_length_src + 3: # debug
-                # import ipdb; ipdb.set_trace()
             token_type_ids = batch[2][:, :i+1]
             position_ids = torch.cat((src_position_ids, tgt_position_ids), dim=1)
             inputs = {"input_ids": input_ids, "attention_mask": attention_mask, "token_type_ids": token_type_ids, "position_ids": position_ids}
-            # print(tgt_position_ids) # debug
             outputs = self(**inputs)
             logits = outputs[0][0]
 
@@ -232,7 +226,6 @@ class NERTransformer(BaseTransformer):
             # # option 2: direct greedy decoding
             # out_position_id = torch.argmax(logits, -1)
             
-            # print(out_position_id) # debug
             out_input_id = torch.index_select(src_input_ids, 1, out_position_id)
             out_position_id = out_position_id.unsqueeze(dim=0) # add batch dim
             tgt_input_ids = torch.cat((init_tgt_input_ids, out_input_id), dim=1)
@@ -332,49 +325,7 @@ class NERTransformer(BaseTransformer):
                     buf_template.append(out_input_id_list[idx])
                     buf_template_pos.append(out_position_id_list[idx])
 
-
             pred_extract.append(temps_extract)
-            ### old ###
-            # sep_cnt = 0
-            # position_buf = []
-            # for idx, token_id in enumerate(out_input_id_list):
-            #     if token_id == self.SEP:
-            #         sep_cnt += 1
-            #         entitys = []
-            #         s_e_pair = []
-            #         for position in position_buf:
-            #             s_e_pair.append(position)
-            #             if len(s_e_pair) == 2:
-            #                 s, e = s_e_pair[0], s_e_pair[1]
-            #                 extract_ids = []
-            #                 for j in range(s, e+1): 
-            #                     extract_ids.append(src_input_id_list[j])
-            #                 extract_tokens = self.tokenizer.convert_ids_to_tokens(extract_ids)
-            #                 if extract_tokens:
-            #                     if len(extract_tokens) <= 20: 
-            #                         candidate_str = " ".join(extract_tokens).replace(" ##", "")
-            #                         if sep_cnt != 4 or "bomb" not in candidate_str:
-            #                             if [candidate_str] not in entitys and not_sub_string(candidate_str, entitys) and candidate_str[:2] != "##":
-            #                                 entitys.append([candidate_str])
-            #                 s_e_pair = []
-            #         # extra s in s_e_pair
-            #         if s_e_pair:
-            #             extract_tokens = self.tokenizer.convert_ids_to_tokens([src_input_id_list[s_e_pair[0]]])
-            #             if len(extract_tokens) <= 20: 
-            #                 candidate_str = " ".join(extract_tokens).replace(" ##", "")
-            #                 if sep_cnt != 4 or "bomb" not in candidate_str:
-            #                     if [candidate_str] not in entitys and not_sub_string(candidate_str, entitys) and candidate_str[:2] != "##":
-            #                         entitys.append([candidate_str])
-            #         # add all entitys of this role
-            #         p_extract.append(entitys)
-            #         # clean buffer
-            #         position_buf = []
-            #     else:
-            #         position_buf.append(out_position_id_list[idx])
-            #     if sep_cnt >= 5: break
-            ### old ###
-
-
         # return {"test_loss": tmp_eval_loss.detach().cpu(), "pred_seq": pred_seq, "pred_extract": pred_extract, "logits": tmp_eval_logits, "target": out_label_ids, "docid": docids}
         return {"pred_seq": pred_seq, "pred_extract": pred_extract, "docid": docids}
 
@@ -441,8 +392,6 @@ class NERTransformer(BaseTransformer):
         else:
             with open("preds_gtt.out", "w+") as f:
                 f.write(json.dumps(preds_log, indent=4))
-
-        # import ipdb; ipdb.set_trace()
 
         return {"log": logs, "progress_bar": logs}
         # return {"test_loss": logs["test_loss"], "log": logs, "progress_bar": logs}
