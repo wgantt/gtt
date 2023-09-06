@@ -36,9 +36,14 @@ class NERTransformer(BaseTransformer):
         self.device = torch.device("cuda" if torch.cuda.is_available() and self.hparams.n_gpu else "cpu")
         # n_gpu = torch.cuda.device_count()
         # self.MASK = tokenizer.convert_tokens_to_ids(['[MASK]'])[0]
-        self.SEP = self.tokenizer.convert_tokens_to_ids(['[SEP]'])[0]
-        self.CLS = self.tokenizer.convert_tokens_to_ids(['[CLS]'])[0]   
-        self.SEP_template = self.tokenizer.convert_tokens_to_ids(["[unused0]"])[0]
+        # self.SEP = self.tokenizer.convert_tokens_to_ids(['[SEP]'])[0]
+        self.SEP = self.tokenizer.sep_token_id
+        # self.CLS = self.tokenizer.convert_tokens_to_ids(['[CLS]'])[0]   
+        self.CLS = self.tokenizer.cls_token_id
+        self.SEP_template_tok = "[unused0]" 
+        # self.SEP_template_tok = "<s>NOTUSED"
+        self.SEP_template = self.tokenizer.convert_tokens_to_ids([self.SEP_template_tok])[0]
+        self.thresh = hparams.thresh
 
     def forward(self, **inputs):
         labels = inputs.pop("labels", None) # doc_length
@@ -91,11 +96,15 @@ class NERTransformer(BaseTransformer):
                     cls_token=self.tokenizer.cls_token,
                     cls_token_segment_id=2 if args.model_type in ["xlnet"] else 0,
                     sep_token=self.tokenizer.sep_token,
-                    sep_token_extra=bool(args.model_type in ["roberta"]),
+                    sep_token_extra=bool(args.model_type in ["roberta", "xlm-roberta"]),
+                    sep_template=self.SEP_template_tok,
                     pad_on_left=bool(args.model_type in ["xlnet"]),
                     pad_token=self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0],
                     pad_token_segment_id=4 if args.model_type in ["xlnet"] else 0,
                     pad_token_label_id=self.pad_token_label_id,
+                    sequence_a_segment_id=0,
+                    # roberta, xlm-roberta don't have segment IDs
+                    sequence_b_segment_id=0 if args.model_type in ["roberta", "xlm-roberta"] else 1,
                 )
                 logger.info("Saving features into cached file %s", cached_features_file)
                 torch.save(features, cached_features_file)
@@ -218,7 +227,7 @@ class NERTransformer(BaseTransformer):
             top_2_probs, top_2_indices = torch.topk(probs, 2, dim=-1)
             for j in range(top_2_indices.size(0)):
                 prob_gap = (top_2_probs[j][0]/top_2_probs[j][1]).detach().cpu().tolist()
-                if src_input_ids[0][top_2_indices[j][0].detach().cpu().tolist()].detach().cpu().tolist() == self.SEP and prob_gap < global_args.thresh:
+                if src_input_ids[0][top_2_indices[j][0].detach().cpu().tolist()].detach().cpu().tolist() == self.SEP and prob_gap < self.thresh:
                     top_2_indices[j][0] = top_2_indices[j][1]
 
             out_position_id = top_2_indices[:, 0]

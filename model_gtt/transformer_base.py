@@ -62,6 +62,7 @@ class BaseTransformer(pl.LightningModule):
             self.hparams.tokenizer_name if self.hparams.tokenizer_name else self.hparams.model_name_or_path,
             do_lower_case=self.hparams.do_lower_case,
             cache_dir=self.hparams.cache_dir if self.hparams.cache_dir else None,
+#            additional_special_tokens=["sep_template", "<s>NOTUSED"]
         )
         model = MODEL_MODES[mode].from_pretrained(
             self.hparams.model_name_or_path,
