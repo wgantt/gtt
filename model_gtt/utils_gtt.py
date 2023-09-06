@@ -116,7 +116,6 @@ def read_golds_from_test_file(data_dir, tokenizer, debug=False):
 
             doctexts_tokens[docid] = tokenizer.tokenize(doctext)
             golds[docid] = templates
-    # import ipdb; ipdb.set_trace()
     return doctexts_tokens, golds
 
 def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
@@ -182,6 +181,7 @@ def convert_examples_to_features(
     pad_token_segment_id=0,
     pad_token_label_id=-100,
     sequence_a_segment_id=0,
+    sequence_b_segment_id=1,
     mask_padding_with_zero=True,
 ):
     """ Loads a data file into a list of `InputBatch`s
@@ -259,8 +259,6 @@ def convert_examples_to_features(
         src_segment_ids += [pad_token_segment_id] * padding_length
         src_position_ids += [0] * padding_length
 
-        # import ipdb; ipdb.set_trace()
-
         ############ tgt_tokens, tgt_mask, tgt_segment_ids, tgt_position_ids, label_ids
         num_entity_span = 0
         # [CLS] (as start)
@@ -314,7 +312,7 @@ def convert_examples_to_features(
         tgt_tokens.append(cls_token)
         tgt_position_ids.append(0)
 
-        tgt_segment_ids = [1 - sequence_a_segment_id] * len(tgt_tokens)
+        tgt_segment_ids = [sequence_b_segment_id] * len(tgt_tokens)
         label_ids = tgt_position_ids[1:]
 
         # convert to ids and padding
@@ -327,8 +325,6 @@ def convert_examples_to_features(
         tgt_segment_ids += [pad_token_segment_id] * padding_length 
         tgt_position_ids += [0] * padding_length
         label_ids += [pad_token_label_id] * (padding_length + 1)
-
-        # import ipdb; ipdb.set_trace()
 
         ### get 2-d mask and get final input_ids, segment_ids, position_ids
         src_src_mask = np.array(src_mask)[None, :].repeat(max_seq_length_src, axis=0)
@@ -351,8 +347,6 @@ def convert_examples_to_features(
         if len(input_ids) != 510:
             import ipdb; ipdb.set_trace()
 
-        # import ipdb; ipdb.set_trace()
-
         if ex_index < 1:
             logger.info("*** Example ***")
             logger.info("docid: %d", docid)
@@ -366,17 +360,5 @@ def convert_examples_to_features(
         features.append(
             InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, position_ids=position_ids, label_ids=label_ids, docid=docid)
         )
-        # import ipdb; ipdb.set_trace()
 
     return features
-
-
-def get_labels(path):
-    if path:
-        with open(path, "r") as f:
-            labels = f.read().splitlines()
-        if "O" not in labels:
-            labels = ["O"] + labels
-        return labels
-    else:
-        return ["O", "B-MISC", "I-MISC", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC"]
