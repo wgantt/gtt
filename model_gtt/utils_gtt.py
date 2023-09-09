@@ -120,7 +120,7 @@ def read_golds_from_test_file(data_dir, tokenizer, debug=False):
 
 def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
     file_path = os.path.join(data_dir, "{}.json".format(mode))
-    num_empty_entities = 0
+    num_invalid_entities = 0
     examples = []
     with open(file_path, encoding="utf-8") as f:
         for line in f:
@@ -155,14 +155,14 @@ def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
                         for entity in value:
                             mention_idx = 0
                             selected_mention = entity[mention_idx]
-                            while not selected_mention[0] and mention_idx < len(entity) - 1:
+                            while not is_valid_mention(selected_mention, doctext) and mention_idx < len(entity) - 1:
                                 mention_idx += 1
                                 selected_mention = entity[mention_idx]
                             # sometimes, we can end up with empty mentions in the
                             # silver data; unfortunately, we just have to skip them
                             # TODO: add logging
                             if not selected_mention[0]:
-                                num_empty_entities += 1
+                                num_invalid_entities += 1
                                 continue
                             first_mention_tokens = tokenizer.tokenize(selected_mention[0])
                             start, end = find_sub_list(first_mention_tokens, doctext_tokens)
@@ -173,9 +173,14 @@ def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
                 templates.append(template)
             examples.append(InputExample(docid=docid, tokens=doctext_tokens, templates=templates))
 
-    logger.warning("Dropped {} empty entities".format(num_empty_entities))
+    logger.warn("Dropped {} invalid entities".format(num_invalid_entities))
     return examples
 
+def is_valid_mention(mention, doctext):
+    mention_str, mention_offset = mention
+    if not mention_str or not mention_offset:
+        return False
+    return doctext[mention_offset:mention_offset+len(mention_str)] == mention_str
 
 def convert_examples_to_features(
     examples,
