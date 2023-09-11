@@ -73,6 +73,9 @@ def read_golds_from_test_file(data_dir, tokenizer, debug=False):
     golds = OrderedDict()
     doctexts_tokens = OrderedDict()
     file_path = os.path.join(data_dir, "test.json")
+
+    bad_gold_mentions = 0
+    total_gold_mentions = 0
     with open(file_path, encoding="utf-8") as f:
         example_cnt = 0
         for line in f:
@@ -98,7 +101,12 @@ def read_golds_from_test_file(data_dir, tokenizer, debug=False):
                             #     template[role].append([start, end])
                             entity = []
                             for mention_offset_pair in entity_raw:
-                                entity.append(mention_offset_pair[0]) 
+                                # See L252 in eval.py for why we do this
+                                if is_valid_mention(mention_offset_pair, doctext):
+                                    entity.append(mention_offset_pair[0]) 
+                                else:
+                                    bad_gold_mentions += 1
+                                total_gold_mentions += 1
                             if entity:
                                 template[role].append(entity)
 
@@ -116,6 +124,7 @@ def read_golds_from_test_file(data_dir, tokenizer, debug=False):
 
             doctexts_tokens[docid] = tokenizer.tokenize(doctext)
             golds[docid] = templates
+    print("bad gold mentions: {}/{}".format(bad_gold_mentions, total_gold_mentions))
     return doctexts_tokens, golds
 
 def read_examples_from_file(data_dir, mode, tokenizer, debug=False):

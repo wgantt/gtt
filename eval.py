@@ -51,6 +51,11 @@ def is_valid_mapping(mapping):
 
     return True
 
+def is_valid_mention(mention, doctext):
+    mention_str, mention_offset = mention
+    if not mention_str or not mention_offset:
+        return False
+    return doctext[mention_offset:mention_offset+len(mention_str)] == mention_str
 
 def score(mapping, pred, gold):
     ex_result = OrderedDict()
@@ -226,6 +231,8 @@ if __name__ == "__main__":
         for docid in out_dict:
             preds[docid] = out_dict[docid]["pred_templates"]
 
+    bad_gold_mentions = 0
+    total_gold_mentions = 0
     with open(args.gold_file, encoding="utf-8") as f:
         for line in f:
             line = json.loads(line)
@@ -242,12 +249,22 @@ if __name__ == "__main__":
                         for entity_raw in value:
                             entity = []
                             for mention_offset_pair in entity_raw:
-                                entity.append(mention_offset_pair[0]) 
+                                # This will drop any mention annotated in the gold data
+                                # that does not also appear in the document text. This may
+                                # happen because of (e.g.) poor translations.
+                                if is_valid_mention(mention_offset_pair, line["doctext"]):
+                                    entity.append(mention_offset_pair[0]) 
+                                else:
+                                    bad_gold_mentions += 1
+                                total_gold_mentions += 1
                             if entity:
                                 template[role].append(entity)
                 if template not in templates:
                     templates.append(template)
             golds[docid] = templates
+    # we'd like to know what fraction of gold mentions are dropped
+    # due to not appearing in the document text
+    print("bad gold mentions: {}/{}".format(bad_gold_mentions, total_gold_mentions))
 
     with open("./data/muc/processed/docids_event_n.json", encoding="utf-8") as f:
         docids_event_n = json.load(f)
