@@ -144,14 +144,6 @@ def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
             doctext, templates_raw = line["doctext"], line["templates"]
             doctext_tokens = tokenizer.tokenize(doctext)
 
-            # for role, entitys in extracts_raw.items():
-            #     extracts[role] = []
-            #     for entity in entitys:
-            #         first_mention_tokens = tokenizer.tokenize(entity[0][0])
-            #         start, end = find_sub_list(first_mention_tokens, doctext_tokens)
-            #         if start != -1 and end != -1:
-            #             extracts[role].append([start, end])
-
             templates = []
             example_entity_cnt = 0
             for template_raw in templates_raw:
@@ -178,6 +170,7 @@ def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
                             if start != -1 and end != -1:
                                 template[role].append([start, end])
                                 example_entity_cnt += 1
+                                num_invalid_entities += 1
 
                 templates.append(template)
             examples.append(InputExample(docid=docid, tokens=doctext_tokens, templates=templates))
@@ -185,11 +178,16 @@ def read_examples_from_file(data_dir, mode, tokenizer, debug=False):
     logger.warn("Dropped {} invalid entities".format(num_invalid_entities))
     return examples
 
-def is_valid_mention(mention, doctext):
+def is_valid_mention(mention, doctext) -> bool:
     mention_str, mention_offset = mention
-    if not mention_str or not mention_offset:
+    if (
+        not mention_str
+        or mention_offset == ""
+        or mention_offset < 0
+        or mention_offset > len(doctext)
+    ):
         return False
-    return doctext[mention_offset:mention_offset+len(mention_str)] == mention_str
+    return doctext[mention_offset : mention_offset + len(mention_str)] == mention_str
 
 def convert_examples_to_features(
     examples,
