@@ -7,7 +7,7 @@ from collections import OrderedDict
 import itertools
 tag2role = OrderedDict({'incident_type':'incident_type', 'perp_individual_id': "PerpInd", 'perp_organization_id': "PerpOrg", 'phys_tgt_id': "Target", 'hum_tgt_name': "Victim", 'incident_instrument_id': "Weapon"})
 
-def normalize_string(s):
+def normalize_string(s, is_chinese=False):
     """Lower text and remove punctuation, articles and extra whitespace."""
     def remove_articles(text):
         regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
@@ -19,7 +19,12 @@ def normalize_string(s):
         return ''.join(ch for ch in text if ch not in exclude)
     def lower(text):
         return text.lower()
-    return white_space_fix(remove_articles(remove_punc(lower(s))))
+    def normalize_chinese(text):
+        return ''.join(text.split())
+    ret = white_space_fix(remove_articles(remove_punc(lower(s))))
+    if is_chinese:
+        ret = normalize_chinese(ret)
+    return ret
 
 
 def f1(p_num, p_den, r_num, r_den, beta=1):
@@ -145,7 +150,7 @@ def score(mapping, pred, gold):
     
 
 
-def eval_tf(preds, golds, docids=[]):
+def eval_tf(preds, golds, docids=[], is_chinese=False):
     # normalization mention strings
     for docid in preds:
         for idx_temp in range(len(preds[docid])):
@@ -153,14 +158,14 @@ def eval_tf(preds, golds, docids=[]):
                 if role == "incident_type": continue
                 for idx in range(len(preds[docid][idx_temp][role])):
                     for idy in range(len(preds[docid][idx_temp][role][idx])):
-                        preds[docid][idx_temp][role][idx][idy] = normalize_string(preds[docid][idx_temp][role][idx][idy])
+                        preds[docid][idx_temp][role][idx][idy] = normalize_string(preds[docid][idx_temp][role][idx][idy], is_chinese)
     for docid in golds:
         for idx_temp in range(len(golds[docid])):
             for role in golds[docid][idx_temp]:
                 if role == "incident_type": continue
                 for idx in range(len(golds[docid][idx_temp][role])):
                     for idy in range(len(golds[docid][idx_temp][role][idx])):
-                        golds[docid][idx_temp][role][idx][idy] = normalize_string(golds[docid][idx_temp][role][idx][idy])
+                        golds[docid][idx_temp][role][idx][idy] = normalize_string(golds[docid][idx_temp][role][idx][idy], is_chinese)
 
 
     # get eval results
@@ -221,6 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--pred_file", default=None, type=str, required=False, help="preds output file")
     parser.add_argument("--gold_file", default="./data/muc/processed/test.json", type=str, required=False, help="gold file")
     parser.add_argument("--event_n", default=-1, type=str, required=False, help="event n")
+    parser.add_argument("--chinese", default=False, action="store_true", help="set this flag if scoring Chinese data to normalize mentions")
     args = parser.parse_args()
 
     ## get pred and gold extracts
@@ -274,7 +280,7 @@ if __name__ == "__main__":
         str_print = []
         for num in [1,2,3,4]:
             docids = docids_event_n[str(num)]
-            results = eval_tf(preds, golds, docids)
+            results = eval_tf(preds, golds, docids, args.chinese)
             for key in all_keys:
                 str_print += [results[key]["f1"] * 100]
         str_print= ["{:.2f}".format(r) for r in str_print]
@@ -283,7 +289,7 @@ if __name__ == "__main__":
     elif args.event_n == ">=2":
         all_keys = ["micro_avg"]
         docids = docids_event_n[args.event_n]
-        results = eval_tf(preds, golds, docids)
+        results = eval_tf(preds, golds, docids, args.chinese)
         str_print = []
         for key in all_keys:
             if key == "micro_avg":
@@ -300,7 +306,7 @@ if __name__ == "__main__":
     else: # all
         all_keys = list(role for _, role in tag2role.items()) + ["micro_avg"]
         docids = []
-        results = eval_tf(preds, golds, docids)
+        results = eval_tf(preds, golds, docids, args.chinese)
         str_print = []
         for key in all_keys:
             if key == "micro_avg":
