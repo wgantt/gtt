@@ -386,21 +386,26 @@ class NERTransformer(BaseTransformer):
                     preds_log[docid]["gold_templates"] = golds[docid]
 
         # evaluate
-        results = eval_tf(preds, golds)
-        for key in results:
-            if key == "micro_avg":
-                print("***************** {} *****************".format(key))
-            else:
-                print("================= {} =================".format(key))
-            print("P: {:.2f}%,  R: {:.2f}%, F1: {:.2f}%".format(results[key]["p"] * 100, results[key]["r"] * 100, results[key]["f1"] * 100)) # phi_strict
+        results = eval_tf(preds, golds, [], is_chinese=False)
+        results_file = os.path.join(args.output_dir, "results_gtt.txt")
+        with open(results_file, "w") as f:
+            for key in results:
+                if key == "micro_avg":
+                    print("***************** {} *****************".format(key))
+                    print("***************** {} *****************".format(key), file=f)
+                else:
+                    print("================= {} =================".format(key))
+                    print("================= {} =================".format(key), file=f)
+                print("P: {:.2f}%,  R: {:.2f}%, F1: {:.2f}%".format(results[key]["p"] * 100, results[key]["r"] * 100, results[key]["f1"] * 100)) # phi_strict
+                print("P: {:.2f}%,  R: {:.2f}%, F1: {:.2f}%".format(results[key]["p"] * 100, results[key]["r"] * 100, results[key]["f1"] * 100), file=f) # phi_strict
 
         logger.info("writing preds to .out file:")
         if args.debug:
-            with open("preds_gtt_debug.out", "w+") as f:
-                f.write(json.dumps(preds_log, indent=4))            
+            with open(os.path.join(args.output_dir, "preds_gtt_debug.out"), mode="w+", encoding="utf8") as f:
+                json.dump(preds_log, f, indent=4, ensure_ascii=False)
         else:
-            with open("preds_gtt.out", "w+") as f:
-                f.write(json.dumps(preds_log, indent=4))
+            with open(os.path.join(args.output_dir, "preds_gtt.out"), mode="w+", encoding="utf8") as f:
+                json.dump(preds_log, f, indent=4, ensure_ascii=False)
 
         return {"log": logs, "progress_bar": logs}
         # return {"test_loss": logs["test_loss"], "log": logs, "progress_bar": logs}
