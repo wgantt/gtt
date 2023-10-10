@@ -5,3 +5,4 @@
 data/muc/processed/cached*
 model_gtt/lightning_logs*
 model_gtt/model*
+model_gtt/mbert*
